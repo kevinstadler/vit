@@ -100,6 +100,9 @@ class Application():
     def set_active_context(self):
         self.context = self.task_config.get_active_context()
 
+    def active_context_filter(self):
+        return self.contexts[self.context]['filter'] if self.context and self.reports[self.report].get('context', 1) else []
+
     def load_contexts(self):
         self.contexts = self.task_config.get_contexts()
 
@@ -202,6 +205,7 @@ class Application():
                 else:
                     return str(task[attribute])
             return ''
+
         replacements = [
             {
                 'match_callback': _task_attribute_match,
@@ -935,7 +939,7 @@ class Application():
         self.task_config.get_projects()
         self.refresh_blocking_task_uuids()
         self.formatter.recalculate_due_datetimes()
-        context_filters = self.contexts[self.context]['filter'] if self.context and self.reports[self.report].get('context', 1) else []
+        context_filters = self.active_context_filter()
         try:
             self.model.update_report(self.report, context_filters=context_filters, extra_filters=self.extra_filters)
         except VitException as err:
