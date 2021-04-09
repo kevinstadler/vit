@@ -22,6 +22,7 @@ LABEL_DEFAULTS = {
     'due.today.label': '(DT)',
     'keyword.label': '(K)',
     'overdue.label': '(OD)',
+    'pending.label': '',
     'project.label': '(P)',
     'project.none.label': '',
     'recurring.label': '(R)',
@@ -31,6 +32,7 @@ LABEL_DEFAULTS = {
     'uda.label': '',
     'uda.priority.label': '(PR)',
     'until.label': '(U)',
+    'waiting.label': '(W)',
 }
 
 class Markers(object):
