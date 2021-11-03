@@ -97,6 +97,9 @@ class Application():
     def set_active_context(self):
         self.context = self.task_config.get_active_context()
 
+    def active_context_filter(self):
+        return self.contexts[self.context]['filter'] if self.context and self.reports[self.report].get('context', 1) else []
+
     def load_contexts(self):
         self.contexts = self.task_config.get_contexts()
 
@@ -195,10 +198,50 @@ class Application():
                 else:
                     return str(task[attribute])
             return ''
+
+        # currently active filter lookup functions. all of these return the
+        # internally used filter representation, which is a flat list of strings
+        _extra_filter = lambda: self.extra_filters
+        _report_filter = lambda: self.model.active_report_filter()
+        _context_filter = lambda: self.active_context_filter()
+
+        # _view_filter is simply a concat of these three filters. logical 'and' is
+        # implied by taskwarrior, just need to make sure to preserve the internal
+        # precedence within each of the three sub-filters
+        def _protect_precedence(filter):
+            return ['(', *filter, ')'] if len(filter) > 1 else filter
+        def _view_filter():
+            parts = [ _extra_filter(), _report_filter(), _context_filter() ]
+            # filter out empty parts
+            parts = [ part for part in parts if part ]
+            # if there is more than one non-empty filter, and at least one part
+            # potentially has complex internal precedence structure...
+            if len(parts) > 1 and any([ len(part) > 1 for part in parts ]):
+                # ..then add parens around all complex parts
+                parts = [ _protect_precedence(part) for part in parts ]
+            return [ item for sublist in parts for item in sublist ]
+
+        _filter_replacements = {
+            'EXTRA_FILTER': _extra_filter,
+            'REPORT_FILTER': _report_filter,
+            'CONTEXT_FILTER': _context_filter,
+            'VIEW_FILTER': _view_filter,
+        }
+        def _filter_attribute_match(variable):
+            if variable in _filter_replacements:
+                return [variable]
+        def _filter_attribute_replace(task, variable):
+            # get filter resolution function and execute it, return as string
+            return ' '.join(_filter_replacements.get(variable)())
+
         replacements = [
             {
                 'match_callback': _task_attribute_match,
                 'replacement_callback': _task_attribute_replace,
+            },
+            {
+                'match_callback': _filter_attribute_match,
+                'replacement_callback': _filter_attribute_replace,
             },
         ]
         return replacements
@@ -923,7 +966,7 @@ class Application():
         self.task_config.get_projects()
         self.refresh_blocking_task_uuids()
         self.formatter.recalculate_due_datetimes()
-        context_filters = self.contexts[self.context]['filter'] if self.context and self.reports[self.report].get('context', 1) else []
+        context_filters = self.active_context_filter()
         try:
             self.model.update_report(self.report, context_filters=context_filters, extra_filters=self.extra_filters)
         except VitException as err:
